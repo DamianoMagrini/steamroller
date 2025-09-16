@@ -70,14 +70,14 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.damix.steamroller.ui.theme.SteamrollerTheme
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 val WHITELIST = stringSetPreferencesKey("whitelist")
@@ -101,8 +101,6 @@ class MainActivity : ComponentActivity() {
 fun getAdmin(ctx: Context): ComponentName {
 	return ComponentName(ctx, DeviceOwnerReceiver::class.java)
 }
-
-var endLockJob: Job? = null
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,9 +135,6 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 	var minutesText by remember { mutableStateOf("25") }
 
 	fun endLock(notify: Boolean) {
-		if (endLockJob != null && endLockJob!!.isActive) {
-			endLockJob!!.cancel()
-		}
 		ctx.getActivity()?.stopLockTask()
 		sessionEndTs = 0
 		if (notify) {
@@ -166,13 +161,9 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 
 		ctx.getActivity()?.startLockTask()
 
-		if (endLockJob != null && endLockJob!!.isActive) {
-			endLockJob!!.cancel()
-		}
-		endLockJob = (GlobalScope.launch {
-			delay(sessionEndTs - System.currentTimeMillis())
+		Executors.newSingleThreadScheduledExecutor().schedule({
 			endLock(true)
-		})
+		}, sessionEndTs - System.currentTimeMillis(), TimeUnit.MILLISECONDS)
 	}
 
 	fun toggleWhitelistItem(app: LaunchableApp) {
@@ -448,8 +439,8 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 											val activity = ctx.getActivity()
 											if (activity != null) {
 												confirmSessionDialogOpen = false
-												startLock()
 												sessionEndTs = newEndTs
+												startLock()
 											}
 										}) { Text("Start") }
 								},
