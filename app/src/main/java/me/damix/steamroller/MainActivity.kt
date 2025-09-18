@@ -70,14 +70,13 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.damix.steamroller.ui.theme.SteamrollerTheme
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 val WHITELIST = stringSetPreferencesKey("whitelist")
@@ -161,9 +160,10 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 
 		ctx.getActivity()?.startLockTask()
 
-		Executors.newSingleThreadScheduledExecutor().schedule({
+		GlobalScope.launch {
+			delay(sessionEndTs - System.currentTimeMillis())
 			endLock(true)
-		}, sessionEndTs - System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+		}
 	}
 
 	fun toggleWhitelistItem(app: LaunchableApp) {
@@ -241,9 +241,7 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 							trailingIcon = {
 								Checkbox(
 									checked = phoneCallsAllowed,
-									onCheckedChange = { v -> phoneCallsAllowed = v },
-									enabled = !sessionRunning
-								)
+									onCheckedChange = { v -> phoneCallsAllowed = v })
 							},
 							onClick = { phoneCallsAllowed = !phoneCallsAllowed },
 							leadingIcon = { Icon(painterResource(R.drawable.phone_in_talk_24px), "") })
@@ -258,7 +256,7 @@ fun HomeScreen(dpm: DevicePolicyManager, vm: VibratorManager) {
 							leadingIcon = { Icon(painterResource(R.drawable.info_24px), "") })
 					}
 				} else {
-					IconButton(onClick = { if (sessionEndTs >= System.currentTimeMillis()) endLock(false) }) {
+					IconButton(onClick = { if (sessionEndTs <= System.currentTimeMillis()) endLock(false) }) {
 						Icon(painterResource(R.drawable.refresh_24px), "Menu")
 					}
 				}
